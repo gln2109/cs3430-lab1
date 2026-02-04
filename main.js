@@ -47,9 +47,9 @@ function keyDown(event) {
     const key = (event.detail || event.which).toString();
     if (keyboardFrequencyMap[key] && !activeOscillators[key]) {
         playNote(key);
-        update();
-        let h = (keyboardFrequencyMap[key][0] - 261) / 4;
-        document.getElementById("header").style.color = `hsl(${h}, 100%, 40%)`
+        updateGainPoly();
+        updateNotesPlaying();
+        updateHeaderColor(key);
     }
 }
 
@@ -58,11 +58,14 @@ function keyUp(event) {
     if (keyboardFrequencyMap[key] && activeOscillators[key]) {
         const gainNode = activeOscillators[key][1]
         const time = audioCtx.currentTime;
+
         gainNode.gain.cancelAndHoldAtTime(time);
         gainNode.gain.setTargetAtTime(0, time, 0.1);
         activeOscillators[key][0].stop(time + 0.6);
+
         delete activeOscillators[key];
-        update();
+        updateGainPoly();
+        updateNotesPlaying();
     }
 }
 
@@ -70,20 +73,30 @@ function playNote(key) {
     const osc = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
     const time = audioCtx.currentTime;
+
     osc.frequency.setValueAtTime(keyboardFrequencyMap[key][0], time)
     osc.type = waveform;
+
     gainNode.gain.setValueAtTime(0.001, time);
     gainNode.gain.exponentialRampToValueAtTime(0.9, time + 0.1);
     gainNode.gain.exponentialRampToValueAtTime(0.3, time + 0.5);
+
     osc.connect(gainNode).connect(globalGain);
     osc.start();
     activeOscillators[key] = [osc, gainNode];
 }
 
-function update() {
-    const keys = Object.keys(activeOscillators);
-    let num = Math.max(1, keys.length);
-    globalGain.gain.setTargetAtTime(0.6/Math.sqrt(num), audioCtx.currentTime, 0.01);
-    let noteList = keys.map(key => keyboardFrequencyMap[key][1])
+function updateGainPoly() {
+    let numActive = Math.max(1, Object.keys(activeOscillators).length);
+    globalGain.gain.setTargetAtTime(0.6 / Math.sqrt(numActive), audioCtx.currentTime, 0.01);
+}
+
+function updateNotesPlaying() {
+    let noteList = Object.keys(activeOscillators).map(k => keyboardFrequencyMap[k][1]);
     document.getElementById("notes").innerText = noteList.join(" ");
+}
+
+function updateHeaderColor(key) {
+    let hue = (keyboardFrequencyMap[key][0] - 261) / 4;
+    document.getElementById("header").style.color = `hsl(${hue}, 100%, 40%)`
 }
